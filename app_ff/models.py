@@ -91,10 +91,18 @@ class Transaction(models.Model):
                     Expense.objects.create(
                         transaction=self,
                         amount=self.total_amount,
-                        date=self.due_date + timedelta(days=30 * i)
+                        date=self.due_date + timedelta(days=30 * i),
+                        current_installment=None,
+                        total_installments=None
                     )
             else:
-                Expense.objects.create(transaction=self, amount=self.total_amount, date=self.due_date)
+                Expense.objects.create(
+                    transaction=self, 
+                    amount=self.total_amount, 
+                    date=self.due_date,
+                    current_installment=1, 
+                    total_installments=1
+                )
         else:
             Income.objects.create(transaction=self, amount=self.total_amount, date=self.due_date)
 
