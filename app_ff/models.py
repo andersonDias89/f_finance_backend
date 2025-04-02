@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import timedelta, date
 from django.db import models
 
 # Status choices
@@ -18,12 +18,7 @@ TYPE_CHOICES = [
 # Recurrence choices
 RECURRENCE_CHOICES = [
     ('one_time', 'One-Time'),
-    ('recurring', 'Recurring')
-]
-
-# Recurrence type choices
-RECURRENCE_TYPE_CHOICES = [
-    ('fixed', 'Fixed'),
+    ('recurring', 'Recurring'),
     ('installment', 'Installment')
 ]
 
@@ -64,10 +59,9 @@ class Transaction(models.Model):
     description = models.TextField()
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    recurrence = models.CharField(max_length=10, choices=RECURRENCE_CHOICES, default='one_time')
-    recurrence_type = models.CharField(max_length=11, choices=RECURRENCE_TYPE_CHOICES, null=True, blank=True)
+    recurrence = models.CharField(max_length=11, choices=RECURRENCE_CHOICES, default='one_time')
     total_installments = models.IntegerField(null=True, blank=True)
-    member = models.ForeignKey(FamilyMember, on_delete=models.CASCADE, null=True, blank=True)
+    member = models.ForeignKey(FamilyMember, on_delete=models.CASCADE)
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE, default=get_default_tag)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
 
@@ -76,31 +70,36 @@ class Transaction(models.Model):
 
     def post(self):
         """Posts the transaction and generates corresponding expenses or incomes"""
+        if self.status != 'pending':
+            raise ValueError("Only pending transactions can be posted.")
+
         if self.type == 'expense':
-            if self.recurrence == 'recurring' and self.recurrence_type == 'installment' and self.total_installments:
+            if self.recurrence == 'installment' and self.total_installments:
                 for i in range(self.total_installments):
+                    installment_due_date = self.due_date.replace(month=self.due_date.month + i)
                     Expense.objects.create(
                         transaction=self,
                         amount=self.total_amount / self.total_installments,
-                        date=self.due_date + timedelta(days=30 * i),
+                        date=installment_due_date,
                         current_installment=i + 1,
                         total_installments=self.total_installments,
                     )
-            elif self.recurrence == 'recurring' and self.recurrence_type == 'fixed':
-                for i in range(12):
+            elif self.recurrence == 'recurring':
+                for i in range(12):  # Criar para 12 meses automaticamente
+                    recurring_due_date = self.due_date.replace(month=self.due_date.month + i) - timedelta(days=10)
                     Expense.objects.create(
                         transaction=self,
                         amount=self.total_amount,
-                        date=self.due_date + timedelta(days=30 * i),
+                        date=recurring_due_date,
                         current_installment=None,
                         total_installments=None
                     )
             else:
                 Expense.objects.create(
-                    transaction=self, 
-                    amount=self.total_amount, 
+                    transaction=self,
+                    amount=self.total_amount,
                     date=self.due_date,
-                    current_installment=1, 
+                    current_installment=1,
                     total_installments=1
                 )
         else:

@@ -1,9 +1,14 @@
-from django.urls import path
-from .views import hello_world
-from .views import transactions
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import TransactionViewSet, ExpenseViewSet, IncomeViewSet, TagViewSet, FamilyMemberViewSet
 
+router = DefaultRouter()
+router.register(r'transactions', TransactionViewSet)
+router.register(r'expenses', ExpenseViewSet)
+router.register(r'incomes', IncomeViewSet)
+router.register(r'tags', TagViewSet)
+router.register(r'family-members', FamilyMemberViewSet)
 
 urlpatterns = [
-    path('hello/', hello_world),  # Essa rota será acessível em /hello/
-    path("transactions/", transactions, name="transactions")
+    path('', include(router.urls)),
 ]
